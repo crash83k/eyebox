@@ -104,6 +104,11 @@ export class ProgressBar {
             .map((template: string): LineItem => {
                 const varSet = template.replace(/[{}]/g, '')
                 let [variable, len = 'fill'] = varSet.split(':', 2)
+
+                if (variable === 'percent') {
+                    len = '4'
+                }
+
                 const num = Number(len)
 
                 variable = variable.toLowerCase()
@@ -112,9 +117,7 @@ export class ProgressBar {
                     throw new Error(`Progress bar variable '${variable}' is not valid. Valid variables are: ${this.templateVariables.join(', ')}`)
                 }
 
-                if (variable === 'percent') {
-                    len = '4'
-                } else if (!isNaN(num)) {
+                if (!isNaN(num)) {
                     lengthLeft -= num
                 } else if (len === 'fill') {
                     fillCount++
@@ -131,12 +134,13 @@ export class ProgressBar {
                     if (filledCount === fillCount && (width - lengthLeft) + lineItem.size < width) {
                         lineItem.size += width - ((width - lengthLeft) + lineItem.size)
                     }
+
+                    lineItem.size = Math.floor(lineItem.size)
+                    lengthLeft -= lineItem.size
                 } else {
                     lineItem.size = Number(lineItem.size)
                 }
 
-                lineItem.size = Math.floor(lineItem.size)
-                lengthLeft -= lineItem.size
                 return lineItem
             })
 

@@ -11,10 +11,8 @@ export const drawBox = (options?) => {
     const box = new Box(options)
     const max = Math.floor(Math.random()*1000)
     const bar = new ProgressBar([
-        box[2], box[3]
+        box[2], //box[3]
     ], 0, max)
-
-    // box.title = clc.windowSize.width + ' x ' + clc.windowSize.height
 
     let i = 1
     let timer = setInterval(() => {
