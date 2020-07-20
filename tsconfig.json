@@ -1,0 +1,40 @@
+{
+    "compileOnSave": true,
+    "typeAcquisition": {
+        "enable": false,
+        "exclude": [
+            "node"
+        ]
+    },
+    "compilerOptions": {
+        "baseUrl": "./",
+        "outDir": "./build",
+        "downlevelIteration": true,
+        "module": "commonjs",
+        "target": "es6",
+        "moduleResolution": "node",
+        "declaration": false,
+        "sourceMap": true,
+        "inlineSources": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "importHelpers": true,
+        "lib": [
+            "dom",
+            "ESNext"
+        ],
+        "types": [
+            "node"
+        ],
+        "typeRoots": [
+            "node_modules/@types"
+        ]
+    },
+    "include": [
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "**/*.spec.ts"
+    ]
+}
