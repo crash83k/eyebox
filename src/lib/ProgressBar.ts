@@ -1,5 +1,4 @@
-import { WriteLineFn } from '../interfaces/box.interfaces'
-import { ConstructorElement, LineItem, LineElement } from '../interfaces/progress-bar.interfaces'
+import { ConstructorElement, LineItem, LineElement, WriteLineFn } from '../interfaces/'
 
 export class ProgressBar {
     private readonly templateVariables: Array<string> = ['percent', 'bar', 'value', 'total', 'title', 'text']

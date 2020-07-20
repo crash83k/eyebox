@@ -3,7 +3,7 @@ import { assign } from 'lodash'
 import { BehaviorSubject } from 'rxjs'
 import { filter } from 'rxjs/operators'
 
-import { BoxOptions, Instruction, TextOptions, WriteLineFn } from '../interfaces/box.interfaces'
+import { BoxOptions, Instruction, TextOptions, WriteLineFn } from '../interfaces'
 
 export class Box {
     private readonly _opts: BoxOptions = {
