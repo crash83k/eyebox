@@ -1,13 +1,17 @@
 import * as clc from 'cli-color'
-import { assign } from 'lodash'
+import { assign, get } from 'lodash'
 import { BehaviorSubject } from 'rxjs'
 import { filter } from 'rxjs/operators'
+import { getFgColor, getBgColor } from '../helpers/clc.utility'
 
-import { BoxOptions, Instruction, TextOptions, WriteLineFn } from '../interfaces'
+import { BoxOptions, BoxWriteQueueItem, TextOptions, BoxLineFns, BoxCharacters } from '../interfaces'
 
 export class Box {
     private readonly _opts: BoxOptions = {
-        w: clc.windowSize.width, h: clc.windowSize.height, x: 0, y: 0,
+        w: clc.windowSize.width,
+        h: clc.windowSize.height,
+        x: 0,
+        y: 0,
         xPadding: 1,
         yPadding: 0,
         titleFgColor: 'whiteBright',
@@ -17,19 +21,23 @@ export class Box {
         contentFgColor: 'whiteBright',
         contentBgColor: undefined,
         drawLineNumbers: false,
+        box: {
+            topLeft: '┌',
+            topRight: '┐',
+            bottomRight: '┘',
+            bottomLeft: '└',
+            vertical: '│',
+            horizontal: '─',
+            titleLeft: '[',
+            titleRight: ']',
+        }
     }
     private _title: string = ''
-    private _write: BehaviorSubject<Instruction> = new BehaviorSubject(undefined)
+    private _write: BehaviorSubject<BoxWriteQueueItem> = new BehaviorSubject(undefined)
     private _bounds: { lines: number, width: number } = {lines: 0, width: 0}
+    private _lineFunctions: { [line: number]: BoxLineFns } = {}
 
-    public box = {
-        topLeft: '┌',
-        topRight: '┐',
-        bottomRight: '┘',
-        bottomLeft: '└',
-        vertical: '│',
-        horizontal: '─',
-    }
+    public box: BoxCharacters
 
     public set title(title: string) {
         this._title = title
@@ -40,8 +48,11 @@ export class Box {
         return this._title + ''
     }
 
+    public get lineCount(): number { return Number(this._bounds.lines) }
+
     constructor(options: BoxOptions = {}) {
         this._opts = assign(this._opts, options)
+        this.box = get(this._opts, 'box')
 
         this._bounds.lines = this._opts.h - 2 - (this._opts.yPadding * 2)
         this._bounds.width = this._opts.w - (2 * this.box.vertical.length) - (this._opts.xPadding * 2)
@@ -51,8 +62,11 @@ export class Box {
         this.drawTop()
         this.drawMiddle()
         this.drawBottom()
+        this.constructLines()
+    }
 
-        return assign(this, this.constructLines())
+    line(line: number): BoxLineFns {
+        return get(this._lineFunctions, line)
     }
 
     drawTop(): void {
@@ -60,14 +74,21 @@ export class Box {
         const posY = this._opts.y
         const box = this.box
         const horizontal = this._opts.w - 2
-        let title = this._title
+        let title = get(this, '_title', '').trim()
 
         let hLeftSize = Math.ceil(horizontal / 2)
         let hRightSize = Math.floor(horizontal / 2)
 
-        if (title !== undefined) {
+        if (title !== undefined && typeof title === 'string' && !!title.trim()) {
+            // Center Title
             hLeftSize = Math.floor(((horizontal - 2) - title.length) / 2)
-            hRightSize = horizontal - hLeftSize - this._title.length - 2
+            hRightSize = (
+                horizontal
+                - hLeftSize
+                - this._title.length
+                - this.box.titleLeft.length
+                - this.box.titleRight.length
+            )
 
             title = this.formatText(title, {
                 fgColor: this._opts.titleFgColor,
@@ -78,12 +99,12 @@ export class Box {
         // top
         let top = box.topLeft
             + box.horizontal.repeat(hLeftSize)
-            + (!!this._title ? '[' + title + ']' : '')
+            + (!!this._title ? this.box.titleLeft + title + this.box.titleRight : '')
             + box.horizontal.repeat(hRightSize)
             + box.topRight
 
-        top = this.getFgColor(this._opts.borderFgColor, top)
-        top = this.getBgColor(this._opts.borderBgColor, top)
+        top = getFgColor(this._opts.borderFgColor, top)
+        top = getBgColor(this._opts.borderBgColor, top)
 
         this._write.next({x: posX, y: posY, text: top})
     }
@@ -99,20 +120,20 @@ export class Box {
             posX = this._opts.x
 
             let left = box.vertical + (this._opts.drawLineNumbers ? ' '.repeat(this._opts.xPadding) + this.getLineNumber(v) : '')
-            left = this.getFgColor(this._opts.borderFgColor, left)
-            left = this.getBgColor(this._opts.borderBgColor, left)
+            left = getFgColor(this._opts.borderFgColor, left)
+            left = getBgColor(this._opts.borderBgColor, left)
             this._write.next({x: posX, y: posY, text: left})
 
             posX += this._opts.w - 1
             let right = box.vertical
-            right = this.getFgColor(this._opts.borderFgColor, right)
-            right = this.getBgColor(this._opts.borderBgColor, right)
+            right = getFgColor(this._opts.borderFgColor, right)
+            right = getBgColor(this._opts.borderBgColor, right)
             this._write.next({x: posX, y: posY, text: right})
         }
     }
 
     private getLineNumber(boxLine: number): string {
-        if (boxLine <= this._opts.yPadding || boxLine >= this._opts.h - 2) {
+        if (boxLine <= this._opts.yPadding || boxLine >= this._opts.h - 1 - this._opts.yPadding) {
             return ''
         }
         boxLine -= this._opts.yPadding
@@ -120,69 +141,25 @@ export class Box {
     }
 
     drawBottom(): void {
-        let posX = this._opts.x
-        let posY = this._opts.h - 1
+        const posX = this._opts.x
+        const posY = this._opts.h + this._opts.y - 1
         const box = this.box
 
         let text = box.bottomLeft + box.horizontal.repeat(this._opts.w - 2) + box.bottomRight
-        text = this.getFgColor(this._opts.borderFgColor, text)
-        text = this.getBgColor(this._opts.borderBgColor, text)
+        text = getFgColor(this._opts.borderFgColor, text)
+        text = getBgColor(this._opts.borderBgColor, text)
         this._write.next({x: posX, y: posY, text})
     }
 
-    private getFgColor(c: string | number, text: string): string {
-        if (c === undefined) {
-            return text
-        }
-        this.checkColor(c)
-        return typeof c === 'string'
-            ? clc[c](text)
-            : clc.xterm(c)(text)
-    }
-
-    private getBgColor(c: string | number, text: string): string {
-        if (c === undefined) {
-            return text
-        }
-
-        if (typeof c === 'string' && c.substr(0, 2) !== 'bg') {
-            c = 'bg' + c[0].toUpperCase() + c.substr(1)
-        }
-
-        this.checkColor(c)
-        return typeof c === 'string'
-            ? clc[c](text)
-            : clc.bgXterm(c)(text)
-    }
-
-    private checkColor(c: string | number): void {
-        switch (typeof c) {
-            case 'string':
-                if (typeof clc[c] !== 'function') {
-                    throw new Error(`Color constant '${c}' is not valid.`)
-                }
-                break
-
-            case 'number':
-                if (c < 0 || c > 255) {
-                    throw new Error(`Color number '${c}' is out of bounds. Acceptable values are 0 through 255.`)
-                }
-                break
-
-            default:
-                throw new Error(`Type error: ${c} is ${typeof c}, and is not a valid. Acceptable types are string and number.`)
-        }
-    }
-
-    private constructLines(): { [line: number]: WriteLineFn } {
-        const lines: { [line: number]: WriteLineFn } = {}
+    private constructLines(): { [line: number]: BoxLineFns } {
+        const lines: { [line: number]: BoxLineFns } = {}
         for (let l = 1; l <= this._bounds.lines - (this._opts.yPadding * 2); l++) {
-            lines[l] = this.makeLine(l + this._opts.yPadding)
+            this._lineFunctions[l] = this.makeLine(l + this._opts.yPadding)
         }
         return lines
     }
 
-    private makeLine(line: number): WriteLineFn {
+    private makeLine(line: number): BoxLineFns {
         const posX = this._opts.x + 1 + this._opts.xPadding
         const posY = this._opts.y + line
         const width = this._bounds.width
@@ -193,12 +170,14 @@ export class Box {
                     const ogTextLen = text.length
                     text = this.formatText(text, options)
                     const lenDelta = text.length - ogTextLen
-                    this._write.next({x: posX, y: posY, text: text.substr(0, width + lenDelta)})
+                    text = text.substr(0, width + lenDelta)
+                    text += ogTextLen < width ? ' '.repeat(width - ogTextLen) : ''
+                    this._write.next({x: posX, y: posY, text})
                 } else {
                     this._write.next({x: posX, y: posY, text: ' '.repeat(width)})
                 }
             },
-            getHeight: () => this._bounds.lines,
+            getBoxHeight: () => this._bounds.lines,
             getWidth: () => width
         }
     }
@@ -211,10 +190,10 @@ export class Box {
         Object.keys(options).forEach(prop => {
             switch (prop) {
                 case 'fgColor':
-                    text = this.getFgColor(options[prop], text)
+                    text = getFgColor(options[prop], text)
                     break
                 case 'bgColor':
-                    text = this.getBgColor(options[prop], text)
+                    text = getBgColor(options[prop], text)
                     break
                 case 'blink':
                 case 'bold':
@@ -234,7 +213,7 @@ export class Box {
         let t: any
         this._write
             .pipe(filter(i => i !== undefined))
-            .subscribe((i: Instruction) => {
+            .subscribe((i: BoxWriteQueueItem) => {
                 if (!!t) {
                     clearTimeout(t)
                 }

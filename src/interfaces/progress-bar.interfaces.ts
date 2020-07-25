@@ -1,9 +1,7 @@
-export declare interface LineItem {
+export declare interface BarTemplateItem {
     key: string,
     size: string | number,
     template: string
 }
 
-export declare type LineElement = () => string
-
-export declare type ConstructorElement = string | { variable: string, index: number }
+export declare type BarLineElementFn = () => string

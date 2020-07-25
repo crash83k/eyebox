@@ -1,7 +1,7 @@
 {
   "name": "eyebox",
-  "version": "0.0.1-alpha",
-  "description": "",
+  "version": "0.0.2-alpha",
+  "description": "CLI user interface components to make monitoring applications easier and more organized.",
   "main": "index.js",
   "scripts": {
     "run": "tsc && node build\\index.js",
@@ -9,14 +9,19 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "Matthew Kernes",
   "license": "ISC",
   "dependencies": {
     "cli-color": "^2.0.0",
+    "keypress": "^0.2.1",
     "lodash": "^4.17.19",
+    "moment": "^2.27.0",
     "rxjs": "^6.6.0"
   },
   "devDependencies": {
-    "@types/node": "^14.0.23"
+    "@types/node": "^14.0.25",
+    "codelyzer": "^6.0.0",
+    "tslint": "^6.1.2",
+    "typescript": "^3.9.7"
   }
 }

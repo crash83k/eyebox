@@ -1,11 +1,11 @@
-import { ConstructorElement, LineItem, LineElement, WriteLineFn } from '../interfaces/'
+import { LineComponentIndex, BarTemplateItem, BarLineElementFn, BoxLineFns } from '../interfaces/'
 
 export class ProgressBar {
     private readonly templateVariables: Array<string> = ['percent', 'bar', 'value', 'total', 'title', 'text']
     private templateVariable: RegExp = /{[A-z]{1,}(:[A-z0-9]*)?}/g
     private dynamicComponentRegex: RegExp = /({[A-z]{1,}:?[A-z0-9]*?})/
-    private lines: Array<WriteLineFn>
-    private formattedLines: Array<Array<LineElement | string>> = []
+    private lines: Array<BoxLineFns>
+    private formattedLines: Array<Array<BarLineElementFn | string>> = []
     private defaultFormat = {
         1: '.:[{bar:fill}]:. {percent}',
         2: '{value:4}/{total:4} ({percent} complete){nl}-:[{bar:fill}]:-',
@@ -54,7 +54,7 @@ export class ProgressBar {
         this.redraw()
     }
 
-    constructor(lines: WriteLineFn[], initialValue?: number, total?: number, format?: string) {
+    constructor(lines: BoxLineFns[], initialValue?: number, total?: number, format?: string) {
         // Set default template
         if (!!format) {
             this._template = format
@@ -72,20 +72,20 @@ export class ProgressBar {
     }
 
     formatBar(): void {
-        const fLine = this._template.split(/{nl}/gi)
-        if (fLine.length > this.lines.length) {
-            throw new Error(`Not enough lines to complete this format. ${fLine.length} line(s) were submitted, but ${this.lines.length} line(s) were provided.`)
+        const barLines = this._template.split(/{nl}/gi)
+        if (barLines.length > this.lines.length) {
+            throw new Error(`Not enough lines to complete this format. ${barLines.length} line(s) were submitted, but ${this.lines.length} line(s) were provided.`)
         }
-        fLine.forEach((template: string, i: number) => {
+        barLines.forEach((template: string, i: number) => {
             this.formattedLines.push(this.fillLineVariables(template, this.lines[i]))
         })
     }
 
-    fillLineVariables(lineTemplate: string, line: WriteLineFn): Array<LineElement | string> {
+    fillLineVariables(lineTemplate: string, line: BoxLineFns): Array<BarLineElementFn | string> {
         const width = line.getWidth()
         const variables = lineTemplate.match(this.templateVariable)
-        const componentList: Array<ConstructorElement> = this.constructLine(lineTemplate, variables)
-        const mapLine: Array<LineElement | string> = []
+        const componentList: Array<LineComponentIndex> = this.constructLine(lineTemplate, variables)
+        const mapLine: Array<BarLineElementFn | string> = []
         let lengthLeft: number = width
         let fillCount: number = 0
         let filledCount: number = 0
@@ -97,10 +97,10 @@ export class ProgressBar {
             }
         })
 
-        const lineComponents: Array<LineElement> = variables
+        const lineComponents: Array<BarLineElementFn> = variables
 
             // Pre-compute spacing (Phase 1 - Count the fills, subtract the static spacing)
-            .map((template: string): LineItem => {
+            .map((template: string): BarTemplateItem => {
                 const varSet = template.replace(/[{}]/g, '')
                 let [variable, len = 'fill'] = varSet.split(':', 2)
 
@@ -126,7 +126,7 @@ export class ProgressBar {
             })
 
             // Pre-compute spacing (Phase 2, Divvy up remaining space between 'fill' variables)
-            .map((lineItem: LineItem) => {
+            .map((lineItem: BarTemplateItem) => {
                 if (lineItem.size === 'fill') {
                     lineItem.size = Math.floor(lengthLeft / fillCount)
                     filledCount++
@@ -144,15 +144,15 @@ export class ProgressBar {
             })
 
             // Create molds and store them
-            .map((lineItem: LineItem) => {
+            .map((lineItem: BarTemplateItem) => {
                 const method = `_${lineItem.key}Mold`
                 if (!(method in this)) {
                     throw new Error(`A mold method for ${lineItem.key} has not been developed.`)
                 }
-                return <LineElement>this[method](lineItem.size)
+                return <BarLineElementFn>this[method](lineItem.size)
             })
 
-        // Push the `LineElements` in place of the `ConstructorElements`
+        // Push the `LineElements` in place of the `BarComponentIndex`
         componentList.forEach(el => {
             if (typeof el === 'object') {
                 mapLine.push(lineComponents[el.index])
@@ -185,9 +185,9 @@ export class ProgressBar {
         return this._barFilled.repeat(barCount) + (totalWidth - barCount > 0 ? this._barEmpty.repeat(totalWidth - barCount) : '')
     }
 
-    private constructLine(lineTemplate: string, variables: Array<string>): Array<ConstructorElement> {
+    private constructLine(lineTemplate: string, variables: Array<string>): Array<LineComponentIndex> {
         let variableIndex = 0
-        const components: Array<ConstructorElement> = []
+        const components: Array<LineComponentIndex> = []
         lineTemplate.split(this.dynamicComponentRegex).forEach((e, i) => {
             if (this.dynamicComponentRegex.test(e)) {
                 components.push({variable: variables[variableIndex], index: variableIndex++})
@@ -211,38 +211,38 @@ export class ProgressBar {
     }
 
     private draw(): void {
-        this.formattedLines.forEach((line: Array<LineElement>, i: number) => {
+        this.formattedLines.forEach((line: Array<BarLineElementFn>, i: number) => {
             this.lines[i].write(this.renderLine(line))
         })
     }
 
-    private renderLine(line: Array<LineElement>): string {
-        return line.map((el: LineElement) => typeof el === 'string' ? el : el()).join('')
+    private renderLine(line: Array<BarLineElementFn>): string {
+        return line.map((el: BarLineElementFn) => typeof el === 'string' ? el : el()).join('')
     }
 
     /* -- Template molds -- */
 
-    private _percentMold(length: number): LineElement {
+    private _percentMold(length: number): BarLineElementFn {
         return () => this.adjustLength(`${this._percent}%`, length)
     }
 
-    private _totalMold(length: number): LineElement {
+    private _totalMold(length: number): BarLineElementFn {
         return () => this.adjustLength(`${this._total}`, length)
     }
 
-    private _valueMold(length: number): LineElement {
+    private _valueMold(length: number): BarLineElementFn {
         return () => this.adjustLength(`${this._value}`, length, 'right')
     }
 
-    private _textMold(length: number): LineElement {
+    private _textMold(length: number): BarLineElementFn {
         return () => this.adjustLength(`${this._text}`, length)
     }
 
-    private _titleMold(length: number): LineElement {
+    private _titleMold(length: number): BarLineElementFn {
         return () => this.adjustLength(`${this._title}`, length)
     }
 
-    private _barMold(length: number): LineElement {
+    private _barMold(length: number): BarLineElementFn {
         return () => this.buildBar(length)
     }
 }

@@ -1,3 +1,16 @@
+import { TextOptions } from './'
+
+export interface BoxCharacters {
+    topLeft?: string,
+    topRight?: string,
+    bottomRight?: string,
+    bottomLeft?: string,
+    vertical?: string,
+    horizontal?: string,
+    titleLeft?: string,
+    titleRight?: string,
+}
+
 export interface BoxOptions {
     x?: number
     y?: number
@@ -13,30 +26,17 @@ export interface BoxOptions {
     contentBgColor?: string | number
     drawLineNumbers?: boolean
     title?: string
+    box?: BoxCharacters
 }
 
-export interface TextOptions {
-    fgColor?: string | number
-    bgColor?: string | number
-    bold?: boolean
-    italic?: boolean
-    underline?: boolean
-    blink?: boolean
-    inverse?: boolean
-    strike?: boolean
-
-    // ToDo: Implement throb
-    // throb?: { intervalMs: number, timeoutMs: number }
-}
-
-export interface Instruction {
+export interface BoxWriteQueueItem {
     x: number,
     y: number,
     text: string
 }
 
-export interface WriteLineFn {
+export interface BoxLineFns {
     write: (text?: string, options?: TextOptions) => void
     getWidth: () => number
-    getHeight: () => number
+    getBoxHeight: () => number
 }
